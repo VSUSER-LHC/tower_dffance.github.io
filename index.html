@@ -1,1 +1,539 @@
 
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tower Defense</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #060d1a; font-family: 'Courier New', monospace; color: #d0dcea; display: flex; justify-content: center; padding: 16px; min-height: 100vh; }
+  #app { display: flex; gap: 12px; width: 100%; max-width: 780px; }
+  #canvas-area { flex: 1; }
+  #gc { display: block; border: 1px solid #1a3050; border-radius: 8px; cursor: crosshair; width: 100%; }
+  #sb { width: 175px; display: flex; flex-direction: column; gap: 7px; flex-shrink: 0; }
+  .pn { background: #0e1624; border: 1px solid #1a3050; border-radius: 8px; padding: 9px; }
+  .pt { font-size: 9px; color: #4a90d9; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; font-weight: bold; }
+  .sr { display: flex; justify-content: space-between; font-size: 11px; color: #7a8a9a; margin-bottom: 3px; }
+  .sv { color: #e2e8f0; font-weight: bold; }
+  .tb { width: 100%; padding: 5px 7px; margin-bottom: 4px; border: 1px solid #1a3050; border-radius: 5px; background: #111e30; color: #d0dcea; font-size: 10px; cursor: pointer; text-align: left; transition: all .15s; font-family: 'Courier New', monospace; line-height: 1.4; }
+  .tb:hover { background: #1a2e4a; border-color: #4a90d9; }
+  .tb.sel { background: #162545; border-color: #60a5fa; box-shadow: 0 0 5px #60a5fa44; }
+  .tb .cs { float: right; color: #fbbf24; font-size: 9px; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+  #mg { font-size: 10px; color: #6ee7b7; min-height: 28px; padding: 5px 7px; background: #0a1a10; border: 1px solid #065f46; border-radius: 5px; line-height: 1.5; }
+  .gb { width: 100%; padding: 7px; border-radius: 5px; font-family: 'Courier New', monospace; font-size: 11px; cursor: pointer; transition: all .15s; letter-spacing: .3px; border: 1px solid; }
+  #btn-start { background: #0c3347; border-color: #0e7490; color: #67e8f9; }
+  #btn-start:hover { background: #0e7490; }
+  #btn-speed { background: #1c1c2e; border-color: #3730a3; color: #a5b4fc; }
+  #btn-speed:hover { background: #2e2b52; }
+  #btn-regen { background: #1a0a20; border-color: #6b21a8; color: #d8b4fe; }
+  #btn-regen:hover { background: #2d1045; }
+  .hint { font-size: 9px; color: #374151; line-height: 1.7; }
+  .hint .ht { color: #4a90d9; margin-bottom: 3px; font-weight: bold; font-size: 10px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="canvas-area">
+    <canvas id="gc"></canvas>
+  </div>
+  <div id="sb">
+    <div class="pn">
+      <div class="pt">ステータス</div>
+      <div class="sr"><span>ライフ</span><span class="sv" id="d-hp">20</span></div>
+      <div class="sr"><span>ゴールド</span><span class="sv" id="d-gold">180</span></div>
+      <div class="sr"><span>ウェーブ</span><span class="sv" id="d-wave">0/12</span></div>
+      <div class="sr"><span>スコア</span><span class="sv" id="d-score">0</span></div>
+    </div>
+
+    <div class="pn">
+      <div class="pt">砲台選択</div>
+      <button class="tb sel" id="b-arrow"   onclick="selTower('arrow')"  ><span class="dot" style="background:#60a5fa"></span>アロー  <span class="cs">50G</span></button>
+      <button class="tb"     id="b-cannon"  onclick="selTower('cannon')" ><span class="dot" style="background:#f97316"></span>キャノン<span class="cs">80G</span></button>
+      <button class="tb"     id="b-laser"   onclick="selTower('laser')"  ><span class="dot" style="background:#a855f7"></span>レーザー<span class="cs">120G</span></button>
+      <button class="tb"     id="b-ice"     onclick="selTower('ice')"    ><span class="dot" style="background:#67e8f9"></span>アイス  <span class="cs">100G</span></button>
+      <button class="tb"     id="b-flame"   onclick="selTower('flame')"  ><span class="dot" style="background:#ef4444"></span>フレイム<span class="cs">90G</span></button>
+      <button class="tb"     id="b-tesla"   onclick="selTower('tesla')"  ><span class="dot" style="background:#facc15"></span>テスラ  <span class="cs">110G</span></button>
+      <button class="tb"     id="b-sniper"  onclick="selTower('sniper')" ><span class="dot" style="background:#34d399"></span>スナイパー<span class="cs">140G</span></button>
+      <button class="tb"     id="b-missile" onclick="selTower('missile')"><span class="dot" style="background:#fb7185"></span>ミサイル<span class="cs">160G</span></button>
+    </div>
+
+    <div id="mg">砲台を選んでマップをクリック</div>
+    <button class="gb" id="btn-start" onclick="startWave()">▶ ウェーブ開始</button>
+    <button class="gb" id="btn-speed" onclick="toggleSpeed()">⚡ 速度: x1</button>
+    <button class="gb" id="btn-regen" onclick="regenMap()">↺ マップ再生成</button>
+
+    <div class="pn hint">
+      <div class="ht">砲台説明</div>
+      アロー: 速射バランス<br>
+      キャノン: 範囲爆発<br>
+      レーザー: 高速ビーム<br>
+      アイス: 敵スロー<br>
+      フレイム: 炎上DoT<br>
+      テスラ: 連鎖電撃<br>
+      スナイパー: 超長射程<br>
+      ミサイル: 誘導大爆発
+    </div>
+  </div>
+</div>
+
+<script>
+const cv = document.getElementById('gc');
+const ctx = cv.getContext('2d');
+const COLS = 16, ROWS = 16;
+let CS = 30;
+
+function resize() {
+  const area = document.getElementById('canvas-area');
+  const w = area.clientWidth;
+  CS = Math.floor(w / COLS);
+  cv.width = CS * COLS;
+  cv.height = CS * ROWS;
+}
+resize();
+window.addEventListener('resize', () => { resize(); });
+
+const TDEFS = {
+  arrow:   { cost:50,  range:3,   dmg:18, rate:55,  color:'#60a5fa', sz:4 },
+  cannon:  { cost:80,  range:2.5, dmg:50, rate:100, color:'#f97316', sz:7,  aoe:true, aoeR:45 },
+  laser:   { cost:120, range:4,   dmg:10, rate:18,  color:'#a855f7', sz:4,  beam:true },
+  ice:     { cost:100, range:2.8, dmg:6,  rate:70,  color:'#67e8f9', sz:4,  slow:true, sf:0.38 },
+  flame:   { cost:90,  range:2.2, dmg:5,  rate:22,  color:'#ef4444', sz:4,  dotEffect:true, dotDmg:3, dotDur:120 },
+  tesla:   { cost:110, range:3,   dmg:25, rate:80,  color:'#facc15', sz:5,  chain:true, chainN:3, chainR:60 },
+  sniper:  { cost:140, range:6.5, dmg:90, rate:150, color:'#34d399', sz:4 },
+  missile: { cost:160, range:3.5, dmg:70, rate:130, color:'#fb7185', sz:6,  aoe:true, aoeR:70, seeking:true }
+};
+
+const WAVES = [
+  {n:6,  hp:60,  spd:1.1},
+  {n:8,  hp:85,  spd:1.2},
+  {n:10, hp:110, spd:1.2},
+  {n:8,  hp:160, spd:1.3},
+  {n:12, hp:135, spd:1.4},
+  {n:10, hp:230, spd:1.3},
+  {n:15, hp:175, spd:1.5},
+  {n:12, hp:310, spd:1.4},
+  {n:18, hp:230, spd:1.6},
+  {n:8,  hp:420, spd:1.3, boss:true},
+  {n:20, hp:270, spd:1.7},
+  {n:6,  hp:950, spd:1.2, boss:true}
+];
+
+let path = [], pathSet = new Set();
+let towers = [], enemies = [], projs = [], parts = [];
+let spawnQ = [], spawnT = 0, frame = 0, speedM = 1;
+let selType = 'arrow';
+let gs = {};
+
+function rng(a, b) { return Math.floor(Math.random() * (b - a + 1)) + a; }
+
+function genPath() {
+  for (let attempt = 0; attempt < 80; attempt++) {
+    const p = tryGenPath();
+    if (p && p.length >= 18) return p;
+  }
+  return fallbackPath();
+}
+
+function tryGenPath() {
+  const visited = new Set();
+  const p = [];
+  let c = 0, r = rng(2, ROWS - 3);
+  p.push([c, r]);
+  visited.add(c + ',' + r);
+  let stuck = 0;
+  while (c < COLS - 1 && stuck < 200) {
+    stuck++;
+    const remaining = COLS - 1 - c;
+    const dirs = [];
+    if (c < COLS - 1) { dirs.push([1, 0]); dirs.push([1, 0]); }
+    if (r > 1 && remaining > 1) dirs.push([0, -1]);
+    if (r < ROWS - 2 && remaining > 1) dirs.push([0, 1]);
+    shuffle(dirs);
+    let moved = false;
+    for (const [dc, dr] of dirs) {
+      const nc = c + dc, nr = r + dr;
+      if (nc < 0 || nc >= COLS || nr < 0 || nr >= ROWS) continue;
+      const key = nc + ',' + nr;
+      if (visited.has(key)) continue;
+      visited.add(key);
+      p.push([nc, nr]);
+      c = nc; r = nr;
+      moved = true;
+      break;
+    }
+    if (!moved) return null;
+  }
+  return c === COLS - 1 ? p : null;
+}
+
+function fallbackPath() {
+  const p = [];
+  const mr = Math.floor(ROWS / 2);
+  for (let c = 0; c < COLS; c++) p.push([c, mr]);
+  return p;
+}
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = rng(0, i);
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+}
+
+function initMap() {
+  path = genPath();
+  pathSet = new Set(path.map(([c, r]) => c + ',' + r));
+  towers = []; enemies = []; projs = []; parts = [];
+  spawnQ = []; spawnT = 0; frame = 0;
+  gs = { hp:20, gold:180, wave:0, score:0, active:false, over:false, win:false };
+  speedM = 1;
+  document.getElementById('btn-speed').textContent = '⚡ 速度: x1';
+  setMsg('マップ生成完了！ウェーブ開始してください');
+  updHUD();
+}
+
+function selTower(t) {
+  selType = t;
+  document.querySelectorAll('.tb').forEach(b => b.classList.remove('sel'));
+  document.getElementById('b-' + t).classList.add('sel');
+  const d = TDEFS[t];
+  const descs = {
+    arrow:'速射バランス型', cannon:'範囲爆発攻撃', laser:'超高速ビーム',
+    ice:'敵速度ダウン', flame:'炎上継続ダメ', tesla:'連鎖電撃',
+    sniper:'超長射程高火力', missile:'誘導ミサイル大爆発'
+  };
+  setMsg(t + ': ' + descs[t] + ' ' + d.cost + 'G');
+}
+
+function setMsg(t) { document.getElementById('mg').textContent = t; }
+function updHUD() {
+  document.getElementById('d-hp').textContent = gs.hp;
+  document.getElementById('d-gold').textContent = gs.gold;
+  document.getElementById('d-wave').textContent = gs.wave + '/12';
+  document.getElementById('d-score').textContent = gs.score;
+}
+
+function toggleSpeed() {
+  speedM = speedM === 1 ? 2 : speedM === 2 ? 3 : 1;
+  document.getElementById('btn-speed').textContent = '⚡ 速度: x' + speedM;
+}
+
+function regenMap() {
+  if (gs.active) return setMsg('ウェーブ中は再生成できません');
+  initMap();
+}
+
+function startWave() {
+  if (gs.active || gs.over || gs.win) return;
+  if (gs.wave >= 12) return;
+  gs.wave++;
+  gs.active = true;
+  const wd = WAVES[gs.wave - 1];
+  spawnQ = [];
+  for (let i = 0; i < wd.n; i++) spawnQ.push({ hp: wd.hp, spd: wd.spd, boss: !!wd.boss });
+  spawnT = 0;
+  setMsg('ウェーブ ' + gs.wave + '/12 開始！');
+  updHUD();
+}
+
+function spawnEnemy(def) {
+  const [sc, sr] = path[0];
+  enemies.push({
+    x: sc * CS + CS / 2, y: sr * CS + CS / 2,
+    pi: 0, maxHp: def.hp, hp: def.hp,
+    spd: def.spd, slowT: 0, sf: 1,
+    boss: !!def.boss,
+    dotT: 0, dotDmgPerFrame: 0,
+    reward: def.boss ? 60 : Math.max(8, Math.floor(8 + def.hp / 12))
+  });
+}
+
+cv.addEventListener('click', function(e) {
+  if (gs.over || gs.win) return;
+  const rect = cv.getBoundingClientRect();
+  const scaleX = cv.width / rect.width;
+  const scaleY = cv.height / rect.height;
+  const mx = (e.clientX - rect.left) * scaleX;
+  const my = (e.clientY - rect.top) * scaleY;
+  const col = Math.floor(mx / CS);
+  const row = Math.floor(my / CS);
+  if (col < 0 || col >= COLS || row < 0 || row >= ROWS) return;
+  if (pathSet.has(col + ',' + row)) return setMsg('パス上には設置できません！');
+  if (towers.find(t => t.col === col && t.row === row)) return setMsg('既にタワーがあります！');
+  const d = TDEFS[selType];
+  if (gs.gold < d.cost) return setMsg('ゴールド不足！(' + d.cost + 'G必要)');
+  gs.gold -= d.cost;
+  towers.push({ col, row, type: selType, ...d, x: col * CS + CS / 2, y: row * CS + CS / 2, cd: 0 });
+  setMsg(selType + '設置！残り' + gs.gold + 'G');
+  updHUD();
+});
+
+function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+
+function killEnemy(e) {
+  const idx = enemies.indexOf(e);
+  if (idx === -1) return;
+  gs.gold += e.reward;
+  gs.score += e.reward * 2;
+  for (let k = 0; k < 8; k++) {
+    parts.push({ x: e.x, y: e.y, vx: (Math.random() - .5) * 4, vy: (Math.random() - .5) * 4, life: 20, max: 20, col: '#fbbf24', spark: true });
+  }
+  enemies.splice(idx, 1);
+  updHUD();
+}
+
+function update() {
+  for (let s = 0; s < speedM; s++) {
+    frame++;
+    if (gs.over || gs.win) break;
+
+    if (gs.active && spawnQ.length > 0) {
+      spawnT--;
+      if (spawnT <= 0) { spawnEnemy(spawnQ.shift()); spawnT = 42; }
+    }
+
+    for (let i = enemies.length - 1; i >= 0; i--) {
+      const e = enemies[i];
+      if (e.slowT > 0) { e.slowT--; if (e.slowT <= 0) e.sf = 1; }
+      if (e.dotT > 0) {
+        e.dotT--;
+        e.hp -= e.dotDmgPerFrame;
+        if (e.hp <= 0) { killEnemy(e); continue; }
+      }
+      if (e.pi >= path.length - 1) {
+        gs.hp--;
+        enemies.splice(i, 1);
+        if (gs.hp <= 0) gs.over = true;
+        updHUD();
+        continue;
+      }
+      const [tc, tr] = path[e.pi + 1];
+      const tx = tc * CS + CS / 2, ty = tr * CS + CS / 2;
+      const dx = tx - e.x, dy = ty - e.y;
+      const d = Math.hypot(dx, dy);
+      const spd = e.spd * e.sf;
+      if (d < spd) { e.pi++; e.x = tx; e.y = ty; }
+      else { e.x += dx / d * spd; e.y += dy / d * spd; }
+    }
+
+    for (const t of towers) {
+      if (t.cd > 0) { t.cd--; continue; }
+      let tgt = null, maxPi = -1;
+      for (const e of enemies) {
+        const d = dist(t, e) / CS;
+        if (d <= t.range && e.pi > maxPi) { maxPi = e.pi; tgt = e; }
+      }
+      if (!tgt) continue;
+      t.cd = t.rate;
+
+      if (t.beam) {
+        tgt.hp -= t.dmg;
+        parts.push({ x: t.x, y: t.y, tx: tgt.x, ty: tgt.y, life: 8, max: 8, col: t.color, beam: true });
+        if (tgt.hp <= 0) killEnemy(tgt);
+      } else if (t.chain) {
+        tgt.hp -= t.dmg;
+        parts.push({ x: t.x, y: t.y, tx: tgt.x, ty: tgt.y, life: 10, max: 10, col: t.color, beam: true });
+        if (tgt.hp <= 0) killEnemy(tgt);
+        let last = tgt;
+        for (let ci = 0; ci < (t.chainN || 2); ci++) {
+          let next = null, nd = 9999;
+          for (const e of enemies) {
+            if (e === last) continue;
+            const d = dist(last, e);
+            if (d < (t.chainR || 55) && d < nd) { nd = d; next = e; }
+          }
+          if (!next) break;
+          next.hp -= t.dmg * 0.6;
+          parts.push({ x: last.x, y: last.y, tx: next.x, ty: next.y, life: 10, max: 10, col: t.color, beam: true });
+          if (next.hp <= 0) killEnemy(next);
+          last = next;
+        }
+      } else {
+        projs.push({
+          x: t.x, y: t.y, tx: tgt.x, ty: tgt.y,
+          spd: t.seeking ? 4 : 5,
+          dmg: t.dmg, col: t.color,
+          aoe: t.aoe, aoeR: t.aoeR,
+          slow: t.slow, sf: t.sf,
+          dotEffect: t.dotEffect, dotDmg: t.dotDmg, dotDur: t.dotDur,
+          tRef: tgt, seeking: t.seeking, sz: t.sz || 4
+        });
+      }
+    }
+
+    for (let i = projs.length - 1; i >= 0; i--) {
+      const p = projs[i];
+      if (p.seeking && p.tRef && p.tRef.hp > 0) { p.tx = p.tRef.x; p.ty = p.tRef.y; }
+      const dx = p.tx - p.x, dy = p.ty - p.y;
+      const d = Math.hypot(dx, dy);
+      if (d < p.spd + 3) {
+        if (p.aoe) {
+          for (const e of enemies) {
+            if (dist(e, { x: p.tx, y: p.ty }) < (p.aoeR || 45)) {
+              e.hp -= p.dmg;
+              for (let k = 0; k < 6; k++) {
+                parts.push({ x: p.tx, y: p.ty, vx: (Math.random() - .5) * 5, vy: (Math.random() - .5) * 5, life: 20, max: 20, col: p.col, spark: true });
+              }
+              if (e.hp <= 0) killEnemy(e);
+            }
+          }
+        } else if (p.tRef && p.tRef.hp > 0) {
+          p.tRef.hp -= p.dmg;
+          if (p.slow) { p.tRef.slowT = 90; p.tRef.sf = p.sf; }
+          if (p.dotEffect) { p.tRef.dotT = p.dotDur || 120; p.tRef.dotDmgPerFrame = (p.dotDmg || 3) / 30; }
+          if (p.tRef.hp <= 0) killEnemy(p.tRef);
+        }
+        projs.splice(i, 1);
+      } else {
+        p.x += dx / d * p.spd;
+        p.y += dy / d * p.spd;
+      }
+    }
+
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const p = parts[i];
+      p.life--;
+      if (p.spark) { p.x += p.vx; p.y += p.vy; p.vx *= 0.87; p.vy *= 0.87; }
+      if (p.life <= 0) parts.splice(i, 1);
+    }
+
+    if (gs.active && spawnQ.length === 0 && enemies.length === 0) {
+      gs.active = false;
+      if (gs.wave >= 12) {
+        gs.win = true;
+      } else {
+        const bon = 35 + gs.wave * 12;
+        gs.gold += bon;
+        setMsg('ウェーブ完了！ボーナス +' + bon + 'G');
+        updHUD();
+      }
+    }
+  }
+}
+
+function draw() {
+  const W = cv.width, H = cv.height;
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#08101e';
+  ctx.fillRect(0, 0, W, H);
+
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const isPath = pathSet.has(c + ',' + r);
+      ctx.fillStyle = isPath ? '#142230' : '#0b1525';
+      ctx.fillRect(c * CS, r * CS, CS, CS);
+      ctx.strokeStyle = '#0c1e30';
+      ctx.lineWidth = 0.4;
+      ctx.strokeRect(c * CS, r * CS, CS, CS);
+    }
+  }
+
+  for (let i = 0; i < path.length - 1; i++) {
+    const [c1, r1] = path[i], [c2, r2] = path[i + 1];
+    ctx.strokeStyle = '#1e4a6a';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(c1 * CS + CS / 2, r1 * CS + CS / 2);
+    ctx.lineTo(c2 * CS + CS / 2, r2 * CS + CS / 2);
+    ctx.stroke();
+  }
+
+  const [sc, sr] = path[0];
+  ctx.fillStyle = '#22c55e';
+  ctx.font = 'bold ' + Math.max(8, CS * 0.35) + 'px monospace';
+  ctx.fillText('IN', sc * CS + 2, sr * CS + CS * 0.65);
+  const [ec, er] = path[path.length - 1];
+  ctx.fillStyle = '#ef4444';
+  ctx.fillText('OUT', ec * CS + 1, er * CS + CS * 0.65);
+
+  for (const t of towers) {
+    const r = CS * 0.38;
+    ctx.fillStyle = '#06101e';
+    ctx.beginPath(); ctx.arc(t.x, t.y, r, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = t.color; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.fillStyle = t.color;
+    ctx.beginPath(); ctx.arc(t.x, t.y, t.sz * (CS / 30), 0, Math.PI * 2); ctx.fill();
+    if (t.type === 'cannon' || t.type === 'missile') {
+      ctx.fillStyle = t.color;
+      ctx.fillRect(t.x - 2, t.y - CS * 0.38, 4, CS * 0.32);
+    }
+    if (t.type === 'tesla') {
+      ctx.strokeStyle = t.color; ctx.lineWidth = 1;
+      for (let a = 0; a < 3; a++) {
+        const ang = frame * 0.1 + a * 2.094;
+        ctx.beginPath(); ctx.moveTo(t.x, t.y);
+        ctx.lineTo(t.x + Math.cos(ang) * r * 0.75, t.y + Math.sin(ang) * r * 0.75);
+        ctx.stroke();
+      }
+    }
+  }
+
+  for (const p of parts) {
+    const alpha = p.life / p.max;
+    if (p.beam) {
+      const hex = Math.floor(alpha * 200).toString(16).padStart(2, '0');
+      ctx.strokeStyle = p.col + hex;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.tx, p.ty); ctx.stroke();
+    } else if (p.spark) {
+      const hex = Math.floor(alpha * 200).toString(16).padStart(2, '0');
+      ctx.fillStyle = p.col + hex;
+      ctx.beginPath(); ctx.arc(p.x, p.y, 3 * alpha, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  for (const p of projs) {
+    ctx.fillStyle = p.col;
+    ctx.beginPath(); ctx.arc(p.x, p.y, (p.sz || 3) * (CS / 30), 0, Math.PI * 2); ctx.fill();
+  }
+
+  for (const e of enemies) {
+    const col = e.boss ? '#ff2222' : e.slowT > 0 ? '#67e8f9' : e.dotT > 0 ? '#ff6633' : '#ef4444';
+    const sz = (e.boss ? 0.44 : 0.28) * CS;
+    ctx.fillStyle = '#0a0a0a';
+    ctx.beginPath(); ctx.arc(e.x, e.y, sz + 1, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.arc(e.x, e.y, sz, 0, Math.PI * 2); ctx.fill();
+    if (e.boss) { ctx.strokeStyle = '#ff8800'; ctx.lineWidth = 1.5; ctx.stroke(); }
+
+    const bw = CS * 0.7, bh = 3, bx = e.x - bw / 2, by = e.y - sz - 5;
+    ctx.fillStyle = '#1a1a1a'; ctx.fillRect(bx, by, bw, bh);
+    const ratio = Math.max(0, e.hp / e.maxHp);
+    ctx.fillStyle = ratio > 0.5 ? '#22c55e' : ratio > 0.25 ? '#f59e0b' : '#ef4444';
+    ctx.fillRect(bx, by, bw * ratio, bh);
+  }
+
+  if (gs.over) {
+    ctx.fillStyle = 'rgba(0,0,0,0.78)'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#ef4444'; ctx.font = 'bold ' + Math.floor(W * 0.07) + 'px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('GAME OVER', W / 2, H / 2 - 20);
+    ctx.fillStyle = '#9ca3af'; ctx.font = Math.floor(W * 0.03) + 'px monospace';
+    ctx.fillText('↺ マップ再生成で再挑戦', W / 2, H / 2 + 20);
+    ctx.textAlign = 'left';
+    return;
+  }
+  if (gs.win) {
+    ctx.fillStyle = 'rgba(0,0,0,0.78)'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#fbbf24'; ctx.font = 'bold ' + Math.floor(W * 0.065) + 'px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('VICTORY!', W / 2, H / 2 - 24);
+    ctx.fillStyle = '#6ee7b7'; ctx.font = Math.floor(W * 0.03) + 'px monospace';
+    ctx.fillText('全12ウェーブクリア！スコア: ' + gs.score, W / 2, H / 2 + 16);
+    ctx.textAlign = 'left';
+  }
+}
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+initMap();
+loop();
+</script>
+</body>
+</html>
